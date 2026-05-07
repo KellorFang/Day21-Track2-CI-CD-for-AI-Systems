@@ -132,12 +132,38 @@ jobs:
     steps:
 
       - name: SSH deploy to VM
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          script: |
-            sudo systemctl restart mlops-serve
-            sleep 5
-            curl -sf http://localhost:8000/health && echo "Health check passed." || exit 1
+        env:
+          SSH_KEY_SECRET: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          python - <<'EOF'
+          import os
+          import base64
+          import subprocess
+          
+          key_data = os.environ.get("SSH_KEY_SECRET", "").strip()
+          
+          if not key_data.startswith("-----BEGIN"):
+              try:
+                  key_data = base64.b64decode(key_data).decode('utf-8')
+              except:
+                  pass
+                  
+          if key_data.startswith("-----BEGIN") and key_data.count("\n") < 2:
+              key_data = key_data.replace("-----BEGIN OPENSSH PRIVATE KEY-----", "-----BEGIN_KEY-----")
+              key_data = key_data.replace("-----END OPENSSH PRIVATE KEY-----", "-----END_KEY-----")
+              key_data = key_data.replace(" ", "\n")
+              key_data = key_data.replace("-----BEGIN_KEY-----", "-----BEGIN OPENSSH PRIVATE KEY-----\n")
+              key_data = key_data.replace("-----END_KEY-----", "\n-----END OPENSSH PRIVATE KEY-----\n")
+              while "\n\n" in key_data:
+                  key_data = key_data.replace("\n\n", "\n")
+                  
+          os.makedirs(os.path.expanduser("~/.ssh"), exist_ok=True)
+          key_path = os.path.expanduser("~/.ssh/deploy_key")
+          with open(key_path, "w") as f:
+              f.write(key_data)
+          os.chmod(key_path, 0o600)
+          EOF
+          
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
+            "sudo systemctl restart mlops-serve && sleep 5 && curl -sf http://localhost:8000/health && echo 'Health check passed.' || exit 1"
