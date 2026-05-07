@@ -131,15 +131,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - name: Authenticate to Cloud Storage
-        run: |
-          echo '${{ secrets.CLOUD_CREDENTIALS }}' > /tmp/sa-key.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa-key.json" >> $GITHUB_ENV
-
-      - name: SSH deploy to VM via gcloud
-        run: |
-          gcloud compute ssh ${{ secrets.VM_USER }}@mlops-serve \
-            --zone=us-central1-a \
-            --project=ai-lab-16 \
-            --quiet \
-            --command="sudo systemctl restart mlops-serve && sleep 5 && curl -sf http://localhost:8000/health && echo 'Health check passed.' || exit 1"
+      - name: SSH deploy to VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            sudo systemctl restart mlops-serve
+            sleep 5
+            curl -sf http://localhost:8000/health && echo "Health check passed." || exit 1
