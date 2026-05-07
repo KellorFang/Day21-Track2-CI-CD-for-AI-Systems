@@ -133,13 +133,20 @@ jobs:
 
       - name: SSH deploy to VM
         env:
-          SSH_KEY_B64: ${{ secrets.VM_SSH_KEY_B64 }}
+          SSH_KEY: ${{ secrets.VM_SSH_KEY }}
         run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_KEY_B64" | base64 -d > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          echo "=== Key fingerprint ===" && ssh-keygen -l -f ~/.ssh/deploy_key || true
-          echo "=== First line ===" && head -1 ~/.ssh/deploy_key
+          python3 - <<'PYEOF'
+          import os, stat
+          key = os.environ["SSH_KEY"]
+          if not key.endswith("\n"):
+              key += "\n"
+          os.makedirs(os.path.expanduser("~/.ssh"), exist_ok=True)
+          kpath = os.path.expanduser("~/.ssh/deploy_key")
+          with open(kpath, "w") as f:
+              f.write(key)
+          os.chmod(kpath, stat.S_IRUSR | stat.S_IWUSR)
+          PYEOF
+          ssh-keygen -l -f ~/.ssh/deploy_key && echo "Key valid"
           ssh -i ~/.ssh/deploy_key \
             -o StrictHostKeyChecking=no \
             -o PasswordAuthentication=no \
