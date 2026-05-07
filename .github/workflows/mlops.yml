@@ -80,8 +80,8 @@ jobs:
           from google.cloud import storage
           import os
 
-          bucket_name = os.environ.get("CLOUD_BUCKET", "${{ secrets.CLOUD_BUCKET }}")
-          client = storage.Client()
+          bucket_name = "${{ secrets.CLOUD_BUCKET }}"
+          client = storage.Client(project="ai-lab-16")
           bucket = client.bucket(bucket_name)
           blob = bucket.blob("models/latest/model.pkl")
           blob.upload_from_filename("models/model.pkl")
