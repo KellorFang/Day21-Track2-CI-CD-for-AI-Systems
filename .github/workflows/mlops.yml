@@ -131,13 +131,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-      - name: SSH deploy to VM
+      - name: Authenticate to Cloud Storage
         run: |
-          mkdir -p ~/.ssh
-          cat << 'EOF' > ~/.ssh/deploy_key
-          ${{ secrets.VM_SSH_KEY }}
-          EOF
-          chmod 600 ~/.ssh/deploy_key
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-            "sudo systemctl restart mlops-serve && sleep 5 && curl -sf http://localhost:8000/health && echo 'Health check passed.' || exit 1"
+          echo '${{ secrets.CLOUD_CREDENTIALS }}' > /tmp/sa-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa-key.json" >> $GITHUB_ENV
+
+      - name: SSH deploy to VM via gcloud
+        run: |
+          gcloud compute ssh ${{ secrets.VM_USER }}@mlops-serve \
+            --zone=us-central1-a \
+            --project=ai-lab-16 \
+            --quiet \
+            --command="sudo systemctl restart mlops-serve && sleep 5 && curl -sf http://localhost:8000/health && echo 'Health check passed.' || exit 1"
