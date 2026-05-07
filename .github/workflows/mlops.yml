@@ -151,4 +151,4 @@ jobs:
             -o StrictHostKeyChecking=no \
             -o PasswordAuthentication=no \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-            "sudo systemctl restart mlops-serve && sleep 5 && curl -sf http://localhost:8000/health && echo 'Health check passed.' || exit 1"
+            "sudo systemctl restart mlops-serve && echo 'Waiting for service...' && for i in \$(seq 1 10); do sleep 3 && curl -sf http://localhost:8000/health && echo 'Health check passed.' && exit 0; echo \"Attempt \$i failed, retrying...\"; done; echo 'Service did not become healthy in time.'; exit 1"
